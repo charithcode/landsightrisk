@@ -1,0 +1,34 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+dist/
+build/
+
+# Environment
+.env
+*.env
+
+# Data (large files — use data/raw/.gitkeep instead)
+data/raw/**/*.tif
+data/raw/**/*.nc
+data/raw/**/*.zip
+data/processed/
+
+# Models
+modules/M2_risk_model/saved_models/*.joblib
+modules/M2_risk_model/saved_models/*.pkl
+
+# Dashboard
+dashboard/node_modules/
+dashboard/dist/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/

@@ -1,0 +1,7 @@
+{
+  "tau_watch": 0.05,
+  "tau_alert": 0.6,
+  "tau_respond": 0.8,
+  "interpretation": "case_control_ranking_cutoffs",
+  "aoi_prevalence_correction": "not_applied"
+}

@@ -1,129 +1,225 @@
 """
-trust_scorer.py — M8: Trust-Weighted Citizen / Field Reports
-=============================================================
-⭐ Innovation Module B (MVP Priority)
+trust_scorer.py — M8: Trust-Weighted Field Reports
+====================================================
+Scores incoming field reports on four independent axes (blueprint §12).
 
-Scores incoming citizen and field reports by source trust.
-High-trust, corroborated reports raise the Decision Confidence
-in M3's output — making the system more responsive to ground truth.
+AXES:
+  pedigree   — reporter credential level
+  accuracy   — GPS horizontal accuracy
+  freshness  — exponential decay from report timestamp
+  sanity     — report type specificity + AOI validation
 
-Trust score formula:
-  trust = w_history * source_history_score
-        + w_corroboration * corroboration_score
-        + w_aapda_mitra * aapda_mitra_bonus
+FORMULA:
+  trust = pedigree × accuracy × freshness × sanity
+  corroboration bonus: ×1.3 if ≥2 independent reports within 500m/12h (cap 1.0)
 
-Corroboration rule:
-  If ≥ 2 reports within 5 km + 3 hours → corroboration_score = 1.0
+HARD RULES (§12):
+  1. reports_enter_training = False  — enforced by assertion; reports NEVER
+     update the landslide inventory or retrain the model.
+  2. confidence_boost changes S (stability) only — never changes p.
+  3. Trust score is used ONLY for UI display and corroboration detection.
 
-Aapda Mitra:
-  NDMA's trained volunteer network — highest-trust human source.
-  aapda_mitra_bonus = 0.3 (additive boost)
+Reporter pedigree levels:
+  official_agency      → 1.0  (NDRF, SDRF, DDMA, highway patrol)
+  trained_volunteer    → 0.7  (Aapda Mitra, NCC, NSS volunteers)
+  anonymous_citizen    → 0.4  (unauthenticated public submission)
+
+GPS accuracy:
+  ≤ 20m  → 1.0
+  ≤ 200m → 0.7
+  > 200m → 0.4
+
+Freshness (exponential, τ=6h):
+  ≤ 1h → 1.0
+  6h   → ~0.37
+  24h  → ~0.02
+
+Report type sanity:
+  road_blocked           → 1.0
+  bridge_damaged         → 0.95
+  debris_flow_observed   → 0.9
+  landslide_active       → 0.85
+  landslide_risk_seen    → 0.7
+  generic_landslide      → 0.5
+  other                  → 0.3
 """
+
+from __future__ import annotations
 
 import math
 from datetime import datetime, timedelta
-from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Literal, Optional
+
 from loguru import logger
 
-# Weights
-W_HISTORY = 0.40
-W_CORROBORATION = 0.40
-W_AAPDA_MITRA = 0.20
+from config.aoi import (
+    AOI_BBOX_WGS84, CORROBORATION_RADIUS_M,
+    CORROBORATION_WINDOW_H, CORROBORATION_MIN_COUNT,
+)
 
-CORROBORATION_RADIUS_KM = 5.0
-CORROBORATION_WINDOW_HOURS = 3.0
-CORROBORATION_MIN_REPORTS = 2
-
-
-@dataclass
-class FieldReport:
-    report_id: str
-    reporter_id: str
-    lat: float
-    lon: float
-    timestamp: datetime
-    description: str
-    is_aapda_mitra: bool = False
-    reporter_accuracy_history: float = 0.5   # 0.0–1.0, default neutral
+# ── HARD RULE: reports never enter training ────────────────────────────────────
+reports_enter_training: bool = False
+assert reports_enter_training is False, (
+    "INVARIANT VIOLATION: field reports must never enter the ML training pipeline. "
+    "Trust scores affect only S (stability overlay) in M3, never p."
+)
 
 
-@dataclass
-class TrustScoredReport:
-    report: FieldReport
-    source_history_score: float
-    corroboration_score: float
-    aapda_mitra_bonus: float
-    trust_score: float          # Final composite [0.0, 1.0]
-    confidence_boost: float     # How much to add to M3 Decision Confidence
+# ── Pedigree levels ───────────────────────────────────────────────────────────
+
+PEDIGREE_SCORES: dict[str, float] = {
+    "official_agency":   1.00,   # NDRF/SDRF/DDMA/highway patrol
+    "trained_volunteer": 0.70,   # Aapda Mitra, NCC, NSS
+    "anonymous_citizen": 0.40,   # unauthenticated public
+}
+
+REPORT_TYPE_SCORES: dict[str, float] = {
+    "road_blocked":         1.00,
+    "bridge_damaged":       0.95,
+    "debris_flow_observed": 0.90,
+    "landslide_active":     0.85,
+    "landslide_risk_seen":  0.70,
+    "generic_landslide":    0.50,
+    "other":                0.30,
+}
+
+PEDIGREE_FRESHNESS_TAU_HOURS = 6.0    # τ for freshness decay
+PEDIGREE_FRESH_WINDOW_HOURS  = 1.0    # ≤ 1h → F = 1.0
+
+# AOI ± buffer (degrees) for GPS validation
+AOI_BUFFER_DEG = 0.014    # ~1.5 km
 
 
-def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Calculate great-circle distance between two points in km."""
-    R = 6371.0
-    phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    dphi = math.radians(lat2 - lat1)
-    dlambda = math.radians(lon2 - lon1)
-    a = math.sin(dphi/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(dlambda/2)**2
-    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+# ── Scoring functions ─────────────────────────────────────────────────────────
+
+def score_pedigree(reporter_type: str) -> float:
+    """Return pedigree score for a reporter type string."""
+    return PEDIGREE_SCORES.get(reporter_type.lower(), PEDIGREE_SCORES["anonymous_citizen"])
 
 
-def compute_corroboration_score(report: FieldReport,
-                                all_reports: List[FieldReport]) -> float:
+def score_gps_accuracy(gps_accuracy_m: Optional[float]) -> float:
+    """Return GPS accuracy score."""
+    if gps_accuracy_m is None:
+        return 0.4   # no accuracy info → weakest score
+    if gps_accuracy_m <= 20:
+        return 1.0
+    if gps_accuracy_m <= 200:
+        return 0.7
+    return 0.4
+
+
+def score_freshness(report_timestamp: datetime) -> float:
     """
-    Check if any other report is within the corroboration radius + time window.
+    Exponential freshness: F = 1.0 if ≤ 1h ago, then exp(-δh/τ).
+    """
+    delta_hours = (datetime.utcnow() - report_timestamp).total_seconds() / 3600.0
+    if delta_hours <= PEDIGREE_FRESH_WINDOW_HOURS:
+        return 1.0
+    return round(math.exp(-delta_hours / PEDIGREE_FRESHNESS_TAU_HOURS), 4)
+
+
+def score_type_sanity(report_type: str) -> float:
+    """Return report type specificity score."""
+    return REPORT_TYPE_SCORES.get(report_type.lower(), REPORT_TYPE_SCORES["other"])
+
+
+def validate_aoi(lon: float, lat: float) -> bool:
+    """
+    Validate that GPS coordinates fall within AOI ± ~1.5 km buffer.
+    Returns True if valid, False if outside.
+    """
+    buf = AOI_BUFFER_DEG
+    lon_min = AOI_BBOX_WGS84[0] - buf
+    lat_min = AOI_BBOX_WGS84[1] - buf
+    lon_max = AOI_BBOX_WGS84[2] + buf
+    lat_max = AOI_BBOX_WGS84[3] + buf
+    return lon_min <= lon <= lon_max and lat_min <= lat <= lat_max
+
+
+def compute_trust(
+    reporter_type: str,
+    gps_accuracy_m: Optional[float],
+    report_timestamp: datetime,
+    report_type: str,
+    lon: float,
+    lat: float,
+) -> dict:
+    """
+    Compute the full trust score for a single field report.
 
     Returns:
-        1.0 if corroborated, 0.0 if not
+        {
+            trust: float [0, 1],
+            pedigree: float,
+            accuracy: float,
+            freshness: float,
+            sanity: float,
+            aoi_valid: bool,
+            corroborated: False (updated later by corroboration check)
+        }
     """
-    window = timedelta(hours=CORROBORATION_WINDOW_HOURS)
-    nearby_count = 0
+    aoi_valid = validate_aoi(lon, lat)
+    if not aoi_valid:
+        logger.warning(f"[M8] Report outside AOI: lon={lon}, lat={lat}")
+        return {
+            "trust": 0.0,
+            "pedigree": 0.0, "accuracy": 0.0, "freshness": 0.0, "sanity": 0.0,
+            "aoi_valid": False, "corroborated": False,
+        }
 
-    for other in all_reports:
-        if other.report_id == report.report_id:
-            continue
-        time_diff = abs(report.timestamp - other.timestamp)
-        if time_diff > window:
-            continue
-        dist_km = haversine_km(report.lat, report.lon, other.lat, other.lon)
-        if dist_km <= CORROBORATION_RADIUS_KM:
-            nearby_count += 1
+    pedigree  = score_pedigree(reporter_type)
+    accuracy  = score_gps_accuracy(gps_accuracy_m)
+    freshness = score_freshness(report_timestamp)
+    sanity    = score_type_sanity(report_type)
 
-    return 1.0 if nearby_count >= CORROBORATION_MIN_REPORTS - 1 else 0.0
+    trust = round(pedigree * accuracy * freshness * sanity, 4)
+    return {
+        "trust":       trust,
+        "pedigree":    pedigree,
+        "accuracy":    accuracy,
+        "freshness":   freshness,
+        "sanity":      sanity,
+        "aoi_valid":   True,
+        "corroborated":False,    # updated by apply_corroboration_bonus
+    }
 
 
-def score_report(report: FieldReport, all_reports: List[FieldReport]) -> TrustScoredReport:
+def apply_corroboration_bonus(
+    trust_result: dict,
+    n_corroborating: int,
+    bonus_factor: float = 1.3,
+) -> dict:
     """
-    Compute full trust score for a single report.
+    Apply corroboration bonus if ≥ CORROBORATION_MIN_COUNT independent reports
+    exist within CORROBORATION_RADIUS_M and CORROBORATION_WINDOW_H.
+
+    trust final = min(trust × 1.3, 1.0)
+
+    NOTE: corroboration boosts trust display only; it does NOT modify p.
+    """
+    result = trust_result.copy()
+    if n_corroborating >= CORROBORATION_MIN_COUNT:
+        boosted = min(trust_result["trust"] * bonus_factor, 1.0)
+        result["trust"] = round(boosted, 4)
+        result["corroborated"] = True
+    return result
+
+
+def confidence_stability_adjustment(
+    trust_score: float,
+    corroborated: bool,
+    cells_near_report: list[str],
+) -> dict:
+    """
+    Field reports adjust S (stability) only — NEVER p.
 
     Returns:
-        TrustScoredReport with all sub-scores and final trust score
+        {cell_id: s_adjustment} — small positive delta to S if trust is high.
+
+    This is the ONLY feedback path from reports to model outputs.
+    s_delta = 0.05 × trust × (1.5 if corroborated else 1.0)  (bounded to +0.1 max)
     """
-    history_score = report.reporter_accuracy_history
-    corroboration = compute_corroboration_score(report, all_reports)
-    aapda_bonus = 0.3 if report.is_aapda_mitra else 0.0
+    assert reports_enter_training is False, "Invariant: reports never enter training"
 
-    trust = (
-        W_HISTORY * history_score
-        + W_CORROBORATION * corroboration
-        + W_AAPDA_MITRA * (1.0 if report.is_aapda_mitra else 0.0)
-    )
-    trust = min(trust + aapda_bonus, 1.0)
-
-    # Confidence boost injected into M3 — scales with trust
-    confidence_boost = trust * 0.15   # Max 15% boost to Decision Confidence
-
-    return TrustScoredReport(
-        report=report,
-        source_history_score=history_score,
-        corroboration_score=corroboration,
-        aapda_mitra_bonus=aapda_bonus,
-        trust_score=round(trust, 4),
-        confidence_boost=round(confidence_boost, 4),
-    )
-
-
-def score_all_reports(reports: List[FieldReport]) -> List[TrustScoredReport]:
-    """Score all incoming reports."""
-    logger.info(f"[M8] Scoring {len(reports)} field reports")
-    return [score_report(r, reports) for r in reports]
+    s_delta = min(0.05 * trust_score * (1.5 if corroborated else 1.0), 0.10)
+    return {cell_id: round(s_delta, 4) for cell_id in cells_near_report}

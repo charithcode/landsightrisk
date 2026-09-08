@@ -1,0 +1,59 @@
+{
+  "ranking": [
+    {
+      "feature": "elevation",
+      "mean_abs_shap": 1.7708
+    },
+    {
+      "feature": "r07d",
+      "mean_abs_shap": 0.9205
+    },
+    {
+      "feature": "rain_anom",
+      "mean_abs_shap": 0.8727
+    },
+    {
+      "feature": "r30d",
+      "mean_abs_shap": 0.7066
+    },
+    {
+      "feature": "hand",
+      "mean_abs_shap": 0.4985
+    },
+    {
+      "feature": "slope",
+      "mean_abs_shap": 0.3987
+    },
+    {
+      "feature": "aspect_sin",
+      "mean_abs_shap": 0.2632
+    },
+    {
+      "feature": "tpi",
+      "mean_abs_shap": 0.2602
+    },
+    {
+      "feature": "r15d",
+      "mean_abs_shap": 0.2437
+    },
+    {
+      "feature": "aspect_cos",
+      "mean_abs_shap": 0.2124
+    },
+    {
+      "feature": "tri",
+      "mean_abs_shap": 0.1954
+    },
+    {
+      "feature": "r03d",
+      "mean_abs_shap": 0.1358
+    }
+  ],
+  "top_features": [
+    "elevation",
+    "r07d",
+    "rain_anom",
+    "r30d",
+    "hand"
+  ]
+}

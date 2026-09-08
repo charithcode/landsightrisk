@@ -1,0 +1,133 @@
+{
+  "train_date": "2026-09-08T04:59:53.256095",
+  "aoi_bbox_wgs84": [
+    91.4,
+    25.55,
+    92.2,
+    26.2
+  ],
+  "crs_projected": "EPSG:32646",
+  "model_type": "XGBoost",
+  "n_features": 12,
+  "feature_cols": [
+    "elevation",
+    "slope",
+    "aspect_sin",
+    "aspect_cos",
+    "tpi",
+    "tri",
+    "hand",
+    "r03d",
+    "r07d",
+    "r15d",
+    "r30d",
+    "rain_anom"
+  ],
+  "n_positives": 58,
+  "n_negatives": 174,
+  "cv_summary": {
+    "metric_scope": "case_control_sample",
+    "not_full_aoi_performance": true,
+    "pr_auc_mean": 0.7387,
+    "pr_auc_std": 0.2116,
+    "roc_auc_mean": 0.8275,
+    "roc_auc_std": 0.0674,
+    "brier_mean": 0.3113,
+    "brier_std": 0.1212,
+    "hit_rate_top10_mean": 0.1912,
+    "n_folds": 3,
+    "n_samples": 232,
+    "n_positives": 58,
+    "n_negatives": 174,
+    "prevalence_in_sample": 0.25
+  },
+  "thresholds": {
+    "tau_watch": 0.05,
+    "tau_alert": 0.6,
+    "tau_respond": 0.8,
+    "interpretation": "case_control_ranking_cutoffs",
+    "aoi_prevalence_correction": "not_applied"
+  },
+  "brier_before_calib": 0.409,
+  "brier_after_calib": 0.1657,
+  "rf_sanity_pr_auc": 0.7644,
+  "temporal_check": {
+    "performed": true,
+    "split_year": 2014,
+    "n_pos_train": 30,
+    "n_pos_test": 28,
+    "date_min": "2007-07-19",
+    "date_max": "2019-07-09",
+    "test_pr_auc": 0.6683,
+    "test_roc_auc": 0.7728,
+    "test_brier": 0.2076,
+    "metric_scope": "case_control_sample",
+    "note": "Holdout uses later positive event dates vs. sampled non-events. Not a full-AOI temporal forecast metric."
+  },
+  "data_hash_md5": "11ed1520d621c53d8057687b560344d5",
+  "shap_summary": {
+    "ranking": [
+      {
+        "feature": "elevation",
+        "mean_abs_shap": 1.7708
+      },
+      {
+        "feature": "r07d",
+        "mean_abs_shap": 0.9205
+      },
+      {
+        "feature": "rain_anom",
+        "mean_abs_shap": 0.8727
+      },
+      {
+        "feature": "r30d",
+        "mean_abs_shap": 0.7066
+      },
+      {
+        "feature": "hand",
+        "mean_abs_shap": 0.4985
+      },
+      {
+        "feature": "slope",
+        "mean_abs_shap": 0.3987
+      },
+      {
+        "feature": "aspect_sin",
+        "mean_abs_shap": 0.2632
+      },
+      {
+        "feature": "tpi",
+        "mean_abs_shap": 0.2602
+      },
+      {
+        "feature": "r15d",
+        "mean_abs_shap": 0.2437
+      },
+      {
+        "feature": "aspect_cos",
+        "mean_abs_shap": 0.2124
+      },
+      {
+        "feature": "tri",
+        "mean_abs_shap": 0.1954
+      },
+      {
+        "feature": "r03d",
+        "mean_abs_shap": 0.1358
+      }
+    ],
+    "top_features": [
+      "elevation",
+      "r07d",
+      "rain_anom",
+      "r30d",
+      "hand"
+    ]
+  },
+  "is_synthetic_data": false,
+  "training_dataset": "case_control_232",
+  "probability_interpretation": "case_control_ranking_score",
+  "aoi_prevalence_correction": "not_applied",
+  "aoi_prevalence_correction_reason": "Negatives are 2 km-buffered subsampled cells, not a random AOI sample; Elkan-style prior correction is not identified. Outputs are ranking scores, not calibrated P(event) at ~0.01% AOI prevalence.",
+  "metric_scope": "case_control_sample"
+}

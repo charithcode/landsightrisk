@@ -1,124 +1,106 @@
 """
-pipeline_scheduler.py — M9: Live-Updating Risk Trajectory
-==========================================================
-⭐ Innovation Module E (MVP Priority)
+pipeline_scheduler.py — M9: Live Risk Trajectory
+=================================================
+Manual pipeline runner — no APScheduler.
 
-Schedules the full LANDSIGHT pipeline to re-run on a rolling basis
-as new rainfall / field data arrives during a monsoon event.
+Call manually or via cron:
+  python -m modules.M9_live_risk_trajectory.pipeline_scheduler
 
-Key behaviors:
-  - Re-run every N hours (configurable via .env PIPELINE_RERUN_INTERVAL_HOURS)
-  - Use a rolling 72-hour rainfall window (slide forward each run)
-  - Compare current run vs previous → highlight escalating zones
-  - Auto-escalate/de-escalate action tiers as risk shifts
-
-Risk trajectory data is stored per-run for time-series visualization
-in the dashboard.
+Computes T0 → T1 → T2 deltas and saves trajectory.json.
+T2 = persistence baseline (T1 with freshness F decayed by 3 days).
+T2 is labeled "persistence — not a forecast" in all outputs.
 """
 
-import os
+from __future__ import annotations
+
 import json
 from datetime import datetime
-from apscheduler.schedulers.background import BackgroundScheduler
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
 from loguru import logger
-from dotenv import load_dotenv
 
-load_dotenv()
-
-RERUN_INTERVAL_HOURS = int(os.getenv("PIPELINE_RERUN_INTERVAL_HOURS", 3))
-TRAJECTORY_LOG_PATH = "data/processed/risk_trajectory.json"
+from config.aoi import DATA_RUNS
 
 
-def run_full_pipeline() -> dict:
-    """
-    Execute the complete LANDSIGHT pipeline for the current time window.
-    Called by the scheduler on each interval.
+def _load_run_cells(run_dir: Path) -> pd.DataFrame:
+    full_path = run_dir / "cells_full.parquet"
+    if full_path.exists():
+        return pd.read_parquet(str(full_path))
+    geojson_path = run_dir / "cells.geojson"
+    if geojson_path.exists():
+        import geopandas as gpd
+        gdf = gpd.read_file(str(geojson_path))
+        return pd.DataFrame(gdf.drop(columns=["geometry"], errors="ignore"))
+    return pd.DataFrame()
 
-    Returns:
-        Dict with run metadata and summary risk statistics.
-    """
-    run_time = datetime.utcnow().isoformat()
-    logger.info(f"[M9] Pipeline re-run triggered at {run_time}")
 
-    # TODO: Step 1 — M1: Refresh data (new rainfall, field reports)
-    # TODO: Step 2 — M2: Re-run risk prediction
-    # TODO: Step 3 — M3: Re-compute confidence (with latest M8 reports)
-    # TODO: Step 4 — M5: Re-run connectivity simulation
-    # TODO: Step 5 — M6: Re-score criticality
-    # TODO: Step 6 — M7: Re-generate action recommendations
-    # TODO: Step 7 — Append run result to trajectory log
+def compute_persistence_t2(df_t1: pd.DataFrame, tau_days: float = 3.0) -> pd.DataFrame:
+    """T2 = T1 with confidence decayed by 3 days. p is NOT changed."""
+    decay_factor = np.exp(-3.0 / tau_days)
+    df_t2 = df_t1.copy()
+    if "confidence" in df_t2.columns:
+        df_t2["confidence"] = (df_t2["confidence"] * decay_factor).round(4)
+    if "f" in df_t2.columns:
+        df_t2["f"] = (df_t2["f"] * decay_factor).round(4)
+    df_t2["label"] = "T2 — persistence baseline — not a forecast"
+    return df_t2
 
-    run_result = {
-        "run_timestamp": run_time,
-        "high_risk_cell_count": None,    # TODO: fill
-        "tier3_village_count": None,     # TODO: fill
-        "max_risk_score": None,          # TODO: fill
-        "mean_confidence": None,         # TODO: fill
+
+def run_pipeline() -> dict:
+    """Compute trajectory from 3 most recent runs. Saves trajectory.json."""
+    runs = sorted(Path(DATA_RUNS).glob("run_*"), key=lambda p: p.name)[-3:]
+    if not runs:
+        logger.warning("[M9] No runs found.")
+        return {}
+
+    series = []
+    dfs = {}
+
+    for i, run_dir in enumerate(runs):
+        meta_path = run_dir / "run_meta.json"
+        if not meta_path.exists():
+            continue
+        with open(meta_path) as f:
+            meta = json.load(f)
+        label = f"T{i}"
+        df = _load_run_cells(run_dir)
+        dfs[label] = df
+        series.append({
+            "run_id":         meta.get("run_id"),
+            "label":          label,
+            "timestamp":      meta.get("timestamp"),
+            "n_alert_cells":  int(meta.get("full_grid_stats", {}).get("n_alert", meta.get("n_alert_cells", 0))),
+            "n_respond_cells":int(meta.get("full_grid_stats", {}).get("n_respond", meta.get("n_respond_cells", 0))),
+        })
+
+    if series:
+        series[-1]["label"] = "T2 (persistence baseline — not a forecast)"
+        series[-1]["is_persistence"] = True
+
+    # Emerging hotspots: cells with p_t1 - p_t0 > 0.05
+    emerging = []
+    if "T0" in dfs and "T1" in dfs and not dfs["T0"].empty and not dfs["T1"].empty:
+        m = dfs["T0"][["cell_id","p"]].merge(dfs["T1"][["cell_id","p"]], on="cell_id", suffixes=("_t0","_t1"))
+        m["delta"] = m["p_t1"] - m["p_t0"]
+        emerging = m[m["delta"] > 0.05].sort_values("delta", ascending=False).head(20).to_dict("records")
+
+    trajectory = {
+        "generated_at":      datetime.utcnow().isoformat(),
+        "chart_series":      series,
+        "emerging_hotspots": emerging,
+        "delta_criticality": [],
+        "disclaimer":        "T2 is persistence only — not a forecast.",
+        "n_runs":            len(series),
     }
-
-    append_to_trajectory(run_result)
-    return run_result
-
-
-def append_to_trajectory(run_result: dict) -> None:
-    """Append a pipeline run result to the time-series trajectory log."""
-    trajectory = load_trajectory()
-    trajectory.append(run_result)
-
-    with open(TRAJECTORY_LOG_PATH, "w") as f:
+    out = Path(DATA_RUNS) / "trajectory.json"
+    with open(out, "w") as f:
         json.dump(trajectory, f, indent=2)
-    logger.info(f"[M9] Trajectory updated — {len(trajectory)} total runs logged")
-
-
-def load_trajectory() -> list:
-    """Load existing trajectory log (empty list if file doesn't exist)."""
-    if not os.path.exists(TRAJECTORY_LOG_PATH):
-        return []
-    with open(TRAJECTORY_LOG_PATH) as f:
-        return json.load(f)
-
-
-def compute_risk_diff(run1: dict, run2: dict) -> dict:
-    """
-    Compare two consecutive pipeline runs to identify:
-    - Zones that escalated in risk
-    - Zones that de-escalated
-    - New Tier 3 villages
-
-    Args:
-        run1: Previous run result
-        run2: Current run result
-
-    Returns:
-        Dict summarizing changes
-    """
-    # TODO: Implement grid-level diff between run1 and run2
-    raise NotImplementedError("Risk diff tracker not yet implemented")
-
-
-def start_scheduler() -> BackgroundScheduler:
-    """
-    Start the APScheduler background scheduler.
-    Call this on API startup.
-
-    Returns:
-        Running BackgroundScheduler instance
-    """
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(
-        run_full_pipeline,
-        trigger="interval",
-        hours=RERUN_INTERVAL_HOURS,
-        id="landsight_pipeline",
-        name="LANDSIGHT Pipeline Re-run",
-        replace_existing=True,
-    )
-    scheduler.start()
-    logger.info(f"[M9] Scheduler started — pipeline runs every {RERUN_INTERVAL_HOURS} hours")
-    return scheduler
+    logger.info(f"[M9] Trajectory → {out}")
+    return trajectory
 
 
 if __name__ == "__main__":
-    # Manual one-shot run
-    result = run_full_pipeline()
+    result = run_pipeline()
     print(json.dumps(result, indent=2))

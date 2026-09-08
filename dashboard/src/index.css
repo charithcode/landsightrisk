@@ -1,0 +1,344 @@
+/* ================================================================
+   LANDSIGHT Design System — index.css
+   Professional Cartographic / Emergency Geospatial Operations Theme
+   Direction: Quiet, premium, technical, geographic, operational.
+   ================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* Surface palette: dark cartographic neutral slate */
+  --bg-deep:       #080c14;
+  --bg-base:       #0d121c;
+  --bg-surface:    #121824;
+  --bg-surface-2:  #172030;
+  --bg-hover:      #1c2639;
+  --bg-active:     #223048;
+  
+  /* Borders: crisp 1px lines */
+  --border-subtle: #182232;
+  --border-medium: #223045;
+  --border-bright: #334460;
+
+  /* Typography */
+  --text-bright:    #f8fafc;
+  --text-primary:   #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted:     #64748b;
+  --text-dim:       #475569;
+
+  /* Semantic palette: restrained, meaningful indicators */
+  --tier-respond: #e11d48; /* High risk / Respond */
+  --tier-verify:  #ea580c; /* Alert / Verify */
+  --tier-ready:   #d97706; /* Ready / Warning */
+  --tier-watch:   #2563eb; /* Watch / Notice */
+  --tier-none:    #475569; /* Neutral / Low */
+  --accent-cyan:  #0891b2;
+  --accent-teal:  #0d9488;
+  --accent-emerald:#059669;
+
+  /* Layout dimensions */
+  --header-h:  46px;
+  --subbar-h:  26px;
+  --sidebar-w: 280px;
+  --right-w:   265px;
+
+  /* Fonts */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+}
+
+/* ── Reset ─────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── App Layout ────────────────────────────────────────────────── */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: var(--bg-deep);
+}
+
+.main-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── Panels ────────────────────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar-w);
+  min-width: var(--sidebar-w);
+  background: var(--bg-base);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  z-index: 5;
+  overflow: hidden;
+}
+
+.right-panel {
+  width: var(--right-w);
+  min-width: var(--right-w);
+  background: var(--bg-base);
+  border-left: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  z-index: 5;
+  overflow: hidden;
+}
+
+.map-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #060910;
+}
+
+/* ── Panel Section Headers ─────────────────────────────────────── */
+.panel-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.panel-hdr:first-child {
+  border-top: none;
+}
+
+.panel-hdr-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.panel-hdr-count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-base);
+  border: 1px solid var(--border-subtle);
+  padding: 1px 6px;
+  border-radius: 2px;
+}
+
+/* ── Operational List Items ────────────────────────────────────── */
+.ops-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.ops-item {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: background 0.15s ease;
+  background: transparent;
+}
+
+.ops-item:hover {
+  background: var(--bg-surface);
+}
+
+.ops-item.active {
+  background: var(--bg-surface-2);
+  border-left: 2px solid var(--accent-cyan);
+}
+
+/* ── Typography Utilities ──────────────────────────────────────── */
+.font-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.text-xs { font-size: 10px; }
+.text-sm { font-size: 11px; }
+.text-base { font-size: 12px; }
+
+/* ── Minimal Technical Bars ────────────────────────────────────── */
+.mini-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  margin-top: 2px;
+}
+
+.mini-bar-lbl {
+  width: 48px;
+  font-size: 9px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.mini-bar-track {
+  flex: 1;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.mini-bar-fill {
+  height: 100%;
+  border-radius: 1px;
+  transition: width 0.3s ease;
+}
+
+.mini-bar-val {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-secondary);
+  width: 28px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── Map Overlays & Controls ───────────────────────────────────── */
+.map-ctrl-bar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-medium);
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+.map-ctrl-btn {
+  padding: 5px 12px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: var(--font-sans);
+}
+
+.map-ctrl-btn:last-child {
+  border-right: none;
+}
+
+.map-ctrl-btn:hover {
+  color: var(--text-bright);
+  background: var(--bg-hover);
+}
+
+.map-ctrl-btn.active {
+  color: var(--text-bright);
+  background: var(--bg-active);
+  box-shadow: inset 0 -2px 0 var(--accent-cyan);
+}
+
+.map-legend-box {
+  position: absolute;
+  bottom: 24px;
+  left: 12px;
+  z-index: 10;
+  background: rgba(13, 18, 28, 0.92);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 8px 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  font-size: 10px;
+}
+
+.map-legend-title {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.map-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  color: var(--text-secondary);
+}
+
+/* ── Minimal GIS Popups ────────────────────────────────────────── */
+.map-popup-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-medium);
+  border-radius: 4px;
+  padding: 10px 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+  font-size: 11px;
+}
+
+.popup-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0;
+  font-size: 10px;
+}
+
+.popup-row-lbl {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 9px;
+}
+
+.popup-row-val {
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* ── Scrollbars ─────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-medium);
+}

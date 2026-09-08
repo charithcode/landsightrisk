@@ -1,0 +1,75 @@
+{
+  "metric_scope": "case_control_sample",
+  "not_full_aoi_performance": true,
+  "is_synthetic_data": false,
+  "folds": [
+    {
+      "pr_auc": 0.4594,
+      "roc_auc": 0.7951,
+      "f1": 0.2384,
+      "ppv": 0.1364,
+      "tpr": 0.9474,
+      "brier": 0.4799,
+      "hit_rate_top10": 0.3684,
+      "fold": 0,
+      "n_val": 168,
+      "n_val_pos": 19,
+      "n_val_neg": 149
+    },
+    {
+      "pr_auc": 0.7852,
+      "roc_auc": 0.7661,
+      "f1": 0.7317,
+      "ppv": 0.6818,
+      "tpr": 0.7895,
+      "brier": 0.2001,
+      "hit_rate_top10": 0.1053,
+      "fold": 1,
+      "n_val": 37,
+      "n_val_pos": 19,
+      "n_val_neg": 18
+    },
+    {
+      "pr_auc": 0.9715,
+      "roc_auc": 0.9214,
+      "f1": 0.7097,
+      "ppv": 1.0,
+      "tpr": 0.55,
+      "brier": 0.254,
+      "hit_rate_top10": 0.1,
+      "fold": 2,
+      "n_val": 27,
+      "n_val_pos": 20,
+      "n_val_neg": 7
+    }
+  ],
+  "summary": {
+    "metric_scope": "case_control_sample",
+    "not_full_aoi_performance": true,
+    "pr_auc_mean": 0.7387,
+    "pr_auc_std": 0.2116,
+    "roc_auc_mean": 0.8275,
+    "roc_auc_std": 0.0674,
+    "brier_mean": 0.3113,
+    "brier_std": 0.1212,
+    "hit_rate_top10_mean": 0.1912,
+    "n_folds": 3,
+    "n_samples": 232,
+    "n_positives": 58,
+    "n_negatives": 174,
+    "prevalence_in_sample": 0.25
+  },
+  "temporal_check": {
+    "performed": true,
+    "split_year": 2014,
+    "n_pos_train": 30,
+    "n_pos_test": 28,
+    "date_min": "2007-07-19",
+    "date_max": "2019-07-09",
+    "test_pr_auc": 0.6683,
+    "test_roc_auc": 0.7728,
+    "test_brier": 0.2076,
+    "metric_scope": "case_control_sample",
+    "note": "Holdout uses later positive event dates vs. sampled non-events. Not a full-AOI temporal forecast metric."
+  }
+}

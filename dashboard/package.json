@@ -1,8 +1,8 @@
 {
   "name": "landsight-dashboard",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
-  "description": "LANDSIGHT GIS Dashboard — AI-Powered Landslide Connectivity & Response Intelligence",
+  "description": "LANDSIGHT — AI-Powered Landslide Connectivity & Response Intelligence for NH-6 Corridor",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -11,8 +11,7 @@
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "mapbox-gl": "^3.0.0",
-    "react-map-gl": "^7.1.0",
+    "maplibre-gl": "^4.1.0",
     "recharts": "^2.10.0",
     "axios": "^1.6.0"
   },

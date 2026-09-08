@@ -1,4 +1,7 @@
 # Python dependencies for LANDSIGHT
+# Updated per blueprint §24 (removed: APScheduler, PostGIS/psycopg2/geoalchemy2, SQLAlchemy)
+# Added: osmnx (dev-only graph build), scipy (calibration), rasterstats (zonal stats),
+#        pyarrow (Parquet I/O), imdlib (IMD binary reader)
 
 # --- Core ML & Data Science ---
 numpy>=1.24.0
@@ -7,6 +10,7 @@ scikit-learn>=1.3.0
 xgboost>=2.0.0
 shap>=0.43.0
 joblib>=1.3.0
+scipy>=1.11.0
 
 # --- Geospatial ---
 geopandas>=0.14.0
@@ -14,10 +18,20 @@ rasterio>=1.3.0
 shapely>=2.0.0
 fiona>=1.9.0
 pyproj>=3.6.0
-folium>=0.15.0
+rasterstats>=0.19.0
+pyarrow>=14.0.0
 
 # --- Graph Engine ---
 networkx>=3.2.0
+
+# --- Road network build (dev-only; NOT imported at runtime) ---
+# Run once: python -m modules.M4_road_exposure.road_network_loader --build
+osmnx>=1.9.0
+
+# --- Rainfall ingest ---
+# imdlib for IMD binary format; xarray for NetCDF
+xarray>=2023.1.0
+# imdlib>=0.1.8  # install manually: pip install imdlib  (not on PyPI main)
 
 # --- API ---
 fastapi>=0.110.0
@@ -25,13 +39,8 @@ uvicorn>=0.27.0
 pydantic>=2.0.0
 python-multipart>=0.0.9
 
-# --- Database ---
-sqlalchemy>=2.0.0
-psycopg2-binary>=2.9.0
-geoalchemy2>=0.14.0
-
-# --- Scheduling (M9 live trajectory) ---
-apscheduler>=3.10.0
+# --- Lightweight DB for reports (SQLite via stdlib; aiosqlite for async) ---
+aiosqlite>=0.19.0
 
 # --- HTTP / Data Fetching ---
 requests>=2.31.0
@@ -42,7 +51,11 @@ python-dotenv>=1.0.0
 tqdm>=4.66.0
 loguru>=0.7.0
 
-# --- Notebook ---
+# --- Notebook (P1) ---
 jupyter>=1.0.0
 matplotlib>=3.8.0
 seaborn>=0.13.0
+
+# --- Testing ---
+pytest>=7.4.0
+pytest-asyncio>=0.23.0

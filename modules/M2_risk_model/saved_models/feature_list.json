@@ -1,0 +1,14 @@
+[
+  "elevation",
+  "slope",
+  "aspect_sin",
+  "aspect_cos",
+  "tpi",
+  "tri",
+  "hand",
+  "r03d",
+  "r07d",
+  "r15d",
+  "r30d",
+  "rain_anom"
+]
